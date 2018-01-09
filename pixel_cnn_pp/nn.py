@@ -18,14 +18,14 @@ def log_sum_exp(x):
     """ numerically stable log_sum_exp implementation that prevents overflow """
     axis = len(x.get_shape())-1
     m = tf.reduce_max(x, axis)
-    m2 = tf.reduce_max(x, axis, keepdims=True)
+    m2 = tf.reduce_max(x, axis, keep_dims=True)
     return m + tf.log(tf.reduce_sum(tf.exp(x-m2), axis))
 
 def log_prob_from_logits(x):
     """ numerically stable log_softmax implementation that prevents overflow """
     axis = len(x.get_shape())-1
-    m = tf.reduce_max(x, axis, keepdims=True)
-    return x - m - tf.log(tf.reduce_sum(tf.exp(x-m), axis, keepdims=True))
+    m = tf.reduce_max(x, axis, keep_dims=True)
+    return x - m - tf.log(tf.reduce_sum(tf.exp(x-m), axis, keep_dims=True))
 
 def energy_distance(x, x_sample):
     l1 = 0.
@@ -177,8 +177,10 @@ def dense(x, num_units, nonlinearity=None, init_scale=1., counters={}, init=Fals
             m_init, v_init = tf.nn.moments(x, [0])
             scale_init = init_scale/tf.sqrt(v_init + 1e-10)
             with tf.control_dependencies([g.assign(g*scale_init), b.assign_add(-m_init*scale_init)]):
-                x = tf.nn.l2_normalize(x, axis=0)
+                x = tf.nn.l2_normalize(x, 0)
 
+        if init_scale == 1.0:
+            x = tf.identity(x, name = "preactivation")
         # apply nonlinearity
         if nonlinearity is not None:
             x = nonlinearity(x)
@@ -207,8 +209,10 @@ def conv2d(x, num_filters, filter_size=[3,3], stride=[1,1], pad='SAME', nonlinea
             m_init, v_init = tf.nn.moments(x, [0,1,2])
             scale_init = init_scale / tf.sqrt(v_init + 1e-10)
             with tf.control_dependencies([g.assign(g * scale_init), b.assign_add(-m_init * scale_init)]):
-                x = tf.nn.l2_normalize(x, axis=[0,1,2])
+                x = tf.nn.l2_normalize(x, [0,1,2])
 
+        if init_scale == 1.0:
+            x = tf.identity(x, name = "preactivation")
         # apply nonlinearity
         if nonlinearity is not None:
             x = nonlinearity(x)
@@ -243,8 +247,10 @@ def deconv2d(x, num_filters, filter_size=[3,3], stride=[1,1], pad='SAME', nonlin
             m_init, v_init = tf.nn.moments(x, [0,1,2])
             scale_init = init_scale / tf.sqrt(v_init + 1e-10)
             with tf.control_dependencies([g.assign(g * scale_init), b.assign_add(-m_init * scale_init)]):
-                x = tf.nn.l2_normalize(x, axis=[0,1,2])
+                x = tf.nn.l2_normalize(x, [0,1,2])
 
+        if init_scale == 1.0:
+            x = tf.identity(x, name = "preactivation")
         # apply nonlinearity
         if nonlinearity is not None:
             x = nonlinearity(x)

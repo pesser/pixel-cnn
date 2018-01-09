@@ -169,16 +169,15 @@ def dense(x, num_units, nonlinearity=None, init_scale=1., counters={}, init=Fals
                               initializer=tf.constant_initializer(0.), trainable=True)
 
         # use weight normalization (Salimans & Kingma, 2016)
-        x = tf.matmul(x, V)
-        scaler = g / tf.sqrt(tf.reduce_sum(tf.square(V), [0]))
-        x = tf.reshape(scaler, [1, num_units]) * x + tf.reshape(b, [1, num_units])
+        V_norm = tf.nn.l2_normalize(V, [0])
+        x = tf.matmul(x, V_norm)
+        if init:
+            mean, var = tf.nn.moments(x, [0])
+            g = tf.assign(g, init_scale / tf.sqrt(var + 1e-10))
+            b = tf.assign(b, -mean * g)
+        x = tf.reshape(g, [1, num_units])*x + tf.reshape(b, [1, num_units])
 
-        if init: # normalize x
-            m_init, v_init = tf.nn.moments(x, [0])
-            scale_init = init_scale/tf.sqrt(v_init + 1e-10)
-            with tf.control_dependencies([g.assign(g*scale_init), b.assign_add(-m_init*scale_init)]):
-                x = tf.nn.l2_normalize(x, 0)
-
+        # name it for testing purposes
         if init_scale == 1.0:
             x = tf.identity(x, name = "preactivation")
         # apply nonlinearity
@@ -200,17 +199,15 @@ def conv2d(x, num_filters, filter_size=[3,3], stride=[1,1], pad='SAME', nonlinea
                               initializer=tf.constant_initializer(0.), trainable=True)
 
         # use weight normalization (Salimans & Kingma, 2016)
-        W = tf.reshape(g, [1, 1, 1, num_filters]) * tf.nn.l2_normalize(V, [0, 1, 2])
+        V_norm = tf.nn.l2_normalize(V, [0,1,2])
+        x = tf.nn.conv2d(x, V_norm, [1] + stride + [1], pad)
+        if init:
+            mean, var = tf.nn.moments(x, [0,1,2])
+            g = tf.assign(g, init_scale / tf.sqrt(var + 1e-10))
+            b = tf.assign(b, -mean * g)
+        x = tf.reshape(g, [1, 1, 1, num_filters])*x + tf.reshape(b, [1, 1, 1, num_filters])
 
-        # calculate convolutional layer output
-        x = tf.nn.bias_add(tf.nn.conv2d(x, W, [1] + stride + [1], pad), b)
-
-        if init:  # normalize x
-            m_init, v_init = tf.nn.moments(x, [0,1,2])
-            scale_init = init_scale / tf.sqrt(v_init + 1e-10)
-            with tf.control_dependencies([g.assign(g * scale_init), b.assign_add(-m_init * scale_init)]):
-                x = tf.nn.l2_normalize(x, [0,1,2])
-
+        # name it for testing purposes
         if init_scale == 1.0:
             x = tf.identity(x, name = "preactivation")
         # apply nonlinearity
@@ -237,18 +234,15 @@ def deconv2d(x, num_filters, filter_size=[3,3], stride=[1,1], pad='SAME', nonlin
                               initializer=tf.constant_initializer(0.), trainable=True)
 
         # use weight normalization (Salimans & Kingma, 2016)
-        W = tf.reshape(g, [1, 1, num_filters, 1]) * tf.nn.l2_normalize(V, [0, 1, 3])
+        V_norm = tf.nn.l2_normalize(V, [0,1,3])
+        x = tf.nn.conv2d_transpose(x, V_norm, target_shape, [1] + stride + [1], pad)
+        if init:
+            mean, var = tf.nn.moments(x, [0,1,2])
+            g = tf.assign(g, init_scale / tf.sqrt(var + 1e-10))
+            b = tf.assign(b, -mean * g)
+        x = tf.reshape(g, [1, 1, 1, num_filters])*x + tf.reshape(b, [1, 1, 1, num_filters])
 
-        # calculate convolutional layer output
-        x = tf.nn.conv2d_transpose(x, W, target_shape, [1] + stride + [1], padding=pad)
-        x = tf.nn.bias_add(x, b)
-
-        if init:  # normalize x
-            m_init, v_init = tf.nn.moments(x, [0,1,2])
-            scale_init = init_scale / tf.sqrt(v_init + 1e-10)
-            with tf.control_dependencies([g.assign(g * scale_init), b.assign_add(-m_init * scale_init)]):
-                x = tf.nn.l2_normalize(x, [0,1,2])
-
+        # name it for testing purposes
         if init_scale == 1.0:
             x = tf.identity(x, name = "preactivation")
         # apply nonlinearity

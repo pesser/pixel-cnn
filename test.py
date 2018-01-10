@@ -73,7 +73,7 @@ preactivations = [op.outputs[0] for op in tf.get_default_graph().get_operations(
 mes = list()
 ves = list()
 for pa in preactivations:
-    r = len(pa.shape.as_list())
+    r = len(pa.shape.as_list()) - 1
     m, v = tf.nn.moments(pa, list(range(r)))
     me = tf.abs(m - tf.zeros_like(m))
     me = tf.reduce_max(me)
